@@ -46,6 +46,10 @@ Setup + deployment: see [`RUNNING.md`](./RUNNING.md).
 
 Live Worker: [`artifacts-lee-skills.cloudflare-support-chat.workers.dev`](https://artifacts-lee-skills.cloudflare-support-chat.workers.dev) (returns `server not configured` until secrets are set).
 
+## ⚠ Security
+
+This PoC removes a bottleneck (waiting for the agent maintainer) without replacing the security control the bottleneck provided. **Do not deploy this against a production agent serving real customers without reading [`SECURITY.md`](./SECURITY.md) first.** Specifically: the pattern needs ingest scanning, pinned-SHA reads, and a promotion gate before it's safe.
+
 ## Status
 
 Live and working against Artifacts. Demo run 2026-04-20 pushed + cloned real skill files through three Artifacts namespaces.
