@@ -6,21 +6,22 @@
 	"workers_dev": true,
 	"observability": { "enabled": true },
 	"vars": {
-		// Demo-only signal; gates a few public-by-default routes
 		"DEMO_MODE": "true",
-		// Team namespace names (fixed for the PoC)
 		"NAMESPACE_DATABASE": "lee-skills-database",
 		"NAMESPACE_NETWORK": "lee-skills-network",
 		"NAMESPACE_SECURITY": "lee-skills-security"
 	}
+	// NOTE: Workers binding (`env.ARTIFACTS`) exists on the Cloudflare runtime per
+	// blog.cloudflare.com/artifacts-git-for-agents-beta/ — but wrangler@4.83 silently
+	// drops `artifacts:` config blocks at deploy (Worker runtime sees the binding as
+	// undefined). So we use the REST API instead. When wrangler adds real support,
+	// swap src/artifacts-client.ts for native binding calls.
+	//
 	// SECRETS (set via `wrangler secret put ...`):
 	//   CLOUDFLARE_ACCOUNT_ID       — target account for Artifacts REST API
-	//   CLOUDFLARE_API_TOKEN        — API token with Artifacts:Write, Artifacts:Read
+	//   CLOUDFLARE_API_TOKEN        — API token (OAuth works short-term; use dashboard token for durable deploys)
 	//   AGENT_TOKEN                 — shared bearer the agent uses on /agent/read-tokens
-	//   TEAM_DATABASE_TOKEN         — shared bearer the DB team uses on /team/database/write-token
-	//   TEAM_NETWORK_TOKEN          — shared bearer the Net team uses on /team/network/write-token
-	//   TEAM_SECURITY_TOKEN         — shared bearer the Sec team uses on /team/security/write-token
-	//
-	// Once wrangler ships the `artifacts` binding schema (currently beta/undocumented in wrangler@4.83),
-	// swap the REST calls in src/artifacts-client.ts for native binding calls.
+	//   TEAM_DATABASE_TOKEN         — shared bearer the DB team uses
+	//   TEAM_NETWORK_TOKEN          — shared bearer the Net team uses
+	//   TEAM_SECURITY_TOKEN         — shared bearer the Sec team uses
 }

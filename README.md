@@ -48,7 +48,9 @@ Live Worker: [`artifacts-lee-skills.cloudflare-support-chat.workers.dev`](https:
 
 ## Status
 
-Local Worker works. Live against Artifacts needs an API token with Artifacts scopes (see [`RUNNING.md`](./RUNNING.md)). Artifacts is beta — this PoC uses the REST API because the Workers binding isn't in wrangler yet.
+Live and working against Artifacts. Demo run 2026-04-20 pushed + cloned real skill files through three Artifacts namespaces.
+
+[Artifacts is in private beta](https://blog.cloudflare.com/artifacts-git-for-agents-beta/) as of 2026-04-16; public beta targeted for early May 2026. The Workers binding (`env.ARTIFACTS`) exists on the Cloudflare runtime per the announcement blog, but `wrangler@4.83` silently drops the `artifacts:` config block, so `env.ARTIFACTS` is `undefined` at runtime. Until wrangler catches up, this PoC uses the REST API — `src/artifacts-client.ts`. Swap it for native binding calls when the config plumbing ships.
 
 ## License
 
