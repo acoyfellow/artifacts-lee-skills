@@ -73,20 +73,20 @@ The simulator:
 2. Pushes a skill file from each team using a freshly-minted write token
 3. Mints read tokens, clones all three repos, and prints the consolidated skills the agent would see
 
-## Real-world deployment
+## What changes in production
 
-The demo uses shared bearer tokens per team for simplicity. In production:
+The demo leans on shared bearer tokens per team because it's the simplest thing that works. A production version would replace them with:
 
-- **Cloudflare Access** on the team endpoints, so only members of the team's Access group can mint write tokens
-- **Service binding or mTLS** between the agent and the Worker for `/agent/read-tokens`
-- **Signed JWT or Workers Secrets** for the agent-side shared secret
+- Cloudflare Access in front of team endpoints, so only members of a team's Access group can mint a write token for that team's namespace
+- A service binding or mTLS between the agent and the Worker for `/agent/read-tokens`
+- A signed JWT or Workers Secret for the agent's shared secret
 
-Other things worth adding:
+A few features this PoC skips that a real deployment probably wants:
 
-- KV cache of the consolidated skills with a short TTL, to avoid re-cloning on every request
-- Webhook from Artifacts (when available) to bust the cache on push
+- KV cache of the consolidated skills with a short TTL, so the agent isn't re-cloning on every request
+- A webhook from Artifacts (when available) that busts the cache on push
 - Per-file access control inside a namespace
-- Signed commits, verified before loading
+- Signed commits, verified before the agent loads the skills
 
 ## Why this works well on Artifacts
 
