@@ -1,148 +1,100 @@
 # artifacts-lee-skills
 
-**Team-editable agent skills, powered by Cloudflare Artifacts.**
+Team-editable agent skills, stored as [Cloudflare Artifacts](https://developers.cloudflare.com/artifacts/) repos.
 
-> Each team owns their namespace.
-> Teams push skills with `git push`.
-> Agent reads skills with `git clone`.
-> No PR. No deploy. No bottleneck.
-
-This is a proof-of-concept for treating [Cloudflare Artifacts](https://developers.cloudflare.com/artifacts/) as the substrate for "git as agent memory" — specifically the problem where many teams inside a company need to update an agent's system prompts / skills / rubrics without going through the agent maintainer.
+Each team gets their own namespace. They push skills with `git push`. The agent reads them with `git clone`. No PR, no deploy, no coordination through the agent maintainer.
 
 ## The pattern
 
 ```
-  Database team       Network team       Security team
-       │                    │                    │
-       │  git push          │  git push          │  git push
-       ▼                    ▼                    ▼
-  Artifacts repo      Artifacts repo      Artifacts repo
-  (lee-skills-         (lee-skills-        (lee-skills-
-   database/skills)     network/skills)    security/skills)
-       │                    │                    │
-       └──────────┬─────────┴──────────┬─────────┘
-                  │                    │
-             git clone (read token)
-                  │
-                  ▼
-              Lee agent
-         (reads all team skills
-          into context on boot)
+     database          network          security
+        │                 │                 │
+        │ git push        │ git push        │ git push
+        ▼                 ▼                 ▼
+   ┌─────────┐       ┌─────────┐       ┌─────────┐
+   │  repo   │       │  repo   │       │  repo   │
+   │(db ns)  │       │(net ns) │       │(sec ns) │
+   └────┬────┘       └────┬────┘       └────┬────┘
+        │                 │                 │
+        └─────────────────┼─────────────────┘
+                          │
+                       git clone
+                    (read tokens)
+                          │
+                          ▼
+                        agent
 ```
 
-- **Namespaces**: one per team. `lee-skills-database`, `lee-skills-network`, `lee-skills-security`
-- **Repos**: one per team, named `skills`. Contains markdown files.
-- **Write tokens**: minted per push by this Worker, 1-hour TTL. Teams authenticate with a per-team shared bearer (demo) or Access / OIDC (prod).
-- **Read tokens**: minted per agent-read, 15-minute TTL. Agent authenticates with the `AGENT_TOKEN` shared secret.
+- One Artifacts namespace per team.
+- One repo per team, named `skills`, containing markdown files.
+- Write tokens are minted per push, 1-hour TTL.
+- Read tokens are minted per agent read, 15-minute TTL.
 
 ## Routes
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/` | public | Route index |
-| GET | `/status` | public | List team repos + remotes |
-| POST | `/bootstrap` | public (demo only; add auth in prod) | Idempotently create all team repos |
-| POST | `/team/:slug/write-token` | Bearer `TEAM_<SLUG>_TOKEN` | Mint 1h write token for team's skills repo |
-| POST | `/agent/read-tokens` | Bearer `AGENT_TOKEN` | Mint 15min read tokens for all teams |
+| GET | `/` | — | Route index |
+| GET | `/status` | — | List team repos + remotes |
+| POST | `/bootstrap` | — (demo; add auth in prod) | Create all team repos (idempotent) |
+| POST | `/team/:slug/write-token` | Bearer `TEAM_<SLUG>_TOKEN` | Mint a 1h write token for a team's repo |
+| POST | `/agent/read-tokens` | Bearer `AGENT_TOKEN` | Mint 15m read tokens for every team |
 
-## Status — 2026-04-20
+## Status
 
-**Worker code is written and typechecks clean.** Live verification blocked on needing a real Cloudflare API token with Artifacts scopes.
+Worker typechecks clean and runs locally. Live against Artifacts needs a real Cloudflare API token with `Artifacts:Read` + `Artifacts:Write` scopes (OAuth tokens from `wrangler login` don't include those scopes yet — create one in the dashboard).
 
-Artifacts is beta. As of `wrangler@4.83`:
-- The Workers **binding** (`env.ARTIFACTS`) isn't in the wrangler config schema yet → this PoC talks to Artifacts via **REST API** instead.
-- **OAuth tokens from `wrangler login` don't include Artifacts scopes** → you need a real API token created in the dashboard with `Artifacts:Read + Artifacts:Write`.
+Artifacts is beta. As of `wrangler@4.83`, the Workers binding (`env.ARTIFACTS`) isn't in the wrangler config schema, so this PoC uses the Artifacts REST API. When the binding ships, swap `src/artifacts-client.ts` for native binding calls — the rest of the Worker stays the same.
 
-When the binding ships: swap `src/artifacts-client.ts` REST calls for native binding calls. Worker code stays the same otherwise.
-
-## Run locally
-
-Prerequisites:
-1. A Cloudflare API token with `Artifacts:Read` + `Artifacts:Write` scopes (create via dashboard)
-2. Your account ID
+## Run
 
 ```bash
 bun install
 
-# Required: Cloudflare API auth
-wrangler secret put CLOUDFLARE_ACCOUNT_ID    # your account ID
-wrangler secret put CLOUDFLARE_API_TOKEN     # API token with Artifacts scopes
-
-# Demo: per-team bearers (swap for Access/OIDC in prod)
-wrangler secret put AGENT_TOKEN              # e.g. "demo-agent-token"
-wrangler secret put TEAM_DATABASE_TOKEN      # e.g. "demo-team-database-token"
-wrangler secret put TEAM_NETWORK_TOKEN       # e.g. "demo-team-network-token"
-wrangler secret put TEAM_SECURITY_TOKEN      # e.g. "demo-team-security-token"
+wrangler secret put CLOUDFLARE_ACCOUNT_ID    # your account id
+wrangler secret put CLOUDFLARE_API_TOKEN     # token with Artifacts scopes
+wrangler secret put AGENT_TOKEN              # any random string
+wrangler secret put TEAM_DATABASE_TOKEN
+wrangler secret put TEAM_NETWORK_TOKEN
+wrangler secret put TEAM_SECURITY_TOKEN
 
 wrangler dev
 ```
 
-## Run the demo
-
-In a second terminal:
+In another terminal:
 
 ```bash
 bun run demo
 ```
 
-The simulator will:
+The simulator:
 
-1. Bootstrap all 3 team repos (idempotent)
-2. Simulate the database team pushing `slow-query.md`
-3. Simulate the network team pushing `dns-resolution.md`
-4. Simulate the security team pushing `secrets-leaked.md`
-5. Mint read tokens for the agent
-6. Clone all 3 repos in parallel
-7. Print the consolidated skills the agent would load into context
+1. Bootstraps the three team repos
+2. Pushes a skill file from each team using a freshly-minted write token
+3. Mints read tokens, clones all three repos, and prints the consolidated skills the agent would see
 
 ## Real-world deployment
 
-Replace the demo bearer tokens with:
+The demo uses shared bearer tokens per team for simplicity. In production:
 
-- **Cloudflare Access** for the team endpoints — only users in the DB team's Access group can mint `team/database/write-token`
-- **Service bindings** or **mTLS** between the agent runtime and this Worker for `/agent/read-tokens`
-- **Scoped bearer or signed JWT** via Workers Secrets for the agent's shared secret
+- **Cloudflare Access** on the team endpoints, so only members of the team's Access group can mint write tokens
+- **Service binding or mTLS** between the agent and the Worker for `/agent/read-tokens`
+- **Signed JWT or Workers Secrets** for the agent-side shared secret
 
-Production improvements (not in this PoC):
+Other things worth adding:
 
-- Cache the agent's consolidated skills in KV with a short TTL (e.g. 60s) to avoid re-cloning on every request
-- Expose a webhook from Artifacts (when available) so the agent invalidates cache on push
-- Per-file access control (some skills are restricted even within the team namespace)
-- Observability: log who pushed what, when
-- Signed commits: teams push with signed tags/commits; agent verifies before loading skills
+- KV cache of the consolidated skills with a short TTL, to avoid re-cloning on every request
+- Webhook from Artifacts (when available) to bust the cache on push
+- Per-file access control inside a namespace
+- Signed commits, verified before loading
 
-## What this demo proves
+## Why this works well on Artifacts
 
-**The bottleneck problem is solved.** When the database team needs to update `slow-query.md`, they do not:
-
-- Open a PR against the Lee main repo
-- Wait for review by a Lee maintainer
-- Wait for CI to pass
-- Wait for deploy
-- Coordinate with other teams
-
-They do:
-
-```bash
-git -c http.extraHeader="Authorization: Bearer $TOKEN" \
-  push https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/lee-skills-database/skills.git \
-  HEAD:main
-```
-
-Lee picks it up on the next agent cycle.
-
-## Why Artifacts is the right primitive for this
-
-- **Per-repo isolation**: the database team's pushes cannot affect the network team's skills
-- **Token scoping**: write tokens are per-repo, per-scope, per-TTL — no blast radius
-- **Git protocol**: teams use the tools they already use
-- **Workers binding**: the agent's read path stays on Cloudflare infra, no egress
-- **Durable replication**: no ops burden to run a git server
-- **Forkable**: if a team wants to propose a change to another team's skills, they fork and send a "patch" repo
-
-## Status
-
-v0.0.1. Not production. Written 2026-04-19 as a proof-of-concept. See `.context/CF-ARTIFACTS-PRIMITIVE.md` (in Jordan's personal context) for the thinking that produced this.
+- Per-repo isolation — one team's push can't touch another team's repo
+- Repo-scoped tokens with configurable TTL — small blast radius
+- Standard git protocol — teams use whatever editor they already use
+- Durable + replicated — no git server to operate
+- Fork primitive — teams can propose changes to each other's skills via fork + "patch" repo
 
 ## License
 
