@@ -44,6 +44,8 @@ bun run demo  # simulates 3 teams pushing + agent reading
 
 Setup + deployment: see [`RUNNING.md`](./RUNNING.md).
 
+Live Worker: [`artifacts-lee-skills.cloudflare-support-chat.workers.dev`](https://artifacts-lee-skills.cloudflare-support-chat.workers.dev) (returns `server not configured` until secrets are set).
+
 ## Status
 
 Local Worker works. Live against Artifacts needs an API token with Artifacts scopes (see [`RUNNING.md`](./RUNNING.md)). Artifacts is beta — this PoC uses the REST API because the Workers binding isn't in wrangler yet.
