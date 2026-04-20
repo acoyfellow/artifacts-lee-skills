@@ -1,0 +1,19 @@
+{
+	"name": "artifacts-lee-skills",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Team-editable agent skills, powered by Cloudflare Artifacts. Each team gets a namespace; agent reads via scoped tokens.",
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"types": "wrangler types",
+		"demo": "bun run demo/simulate.ts"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260416.0",
+		"@types/node": "^25.6.0",
+		"typescript": "^5.6.2",
+		"wrangler": "^4.82.0"
+	}
+}
